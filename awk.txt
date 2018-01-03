@@ -1,0 +1,300 @@
+
+
+
+
+AWK:报告生成器，格式化文本输出； 
+	Aho, Weinberger, Kernighan --> New AWK, NAWK
+
+		GNU awk, gawk
+
+	gawk - pattern scanning and processing language
+
+		gawk [options] 'program' FILE
+
+		按分隔符将一行文本分片后分别保存至内置变量$1 $2 $3... 
+		整行文本$0  可对每个片段单独处理判断
+
+			program: PATTERN{ACTION STATEMENTS}
+				语句之间以分号分隔 PATTERN(类似于地址定界) 默认空白字符
+
+			option 
+				-F 指明输入数据的字段分隔符
+				-v var=value
+
+		1 print 
+			print item1,item2,item3...
+
+			(1) 注意逗号分隔符,
+			(2) 输出的各item可以是字符串,数值,字段$#,变量或awk表达式
+			(3) 如省略item 相当于打印整行文本
+
+			tail -5 /etc/fstab | awk '{print $2,$4}'
+			tail -5 /etc/fstab | awk '{print "hello:$1"}'
+			tail -5 /etc/fstab | awk '{print "hello:"$1}'
+
+		2 变量
+			2.1内置变量
+				FS:input field seperator 输入字段分隔符 默认空白字符
+				OFS: output field seperator
+				RS: record seperator 输入文本的换行符
+				OFS: output record seperator 输出文本的换行符
+				NF: number of field 字段数量
+				NR: number of record行数
+				FILENAME:当前处理文件的名
+				ARGC: 命令行参数个数 
+				ARGV: 数组,保存命令行中所给定的各参数
+		
+
+				awk -F:'{print $1}' /etc/passwd
+				awk -v FS=':' '{print $1}' /etc/passwd
+				awk -v FS=':' -v OFS=':' '{print $1}' /etc/passwd 
+				awk -v RS=' ' '{print}' /etc/passwd
+				awk '{print NF}' /etc/fstab
+				awk '{print $NF}' /etc/fstab
+				awk '{print NR}' /etc/fstab
+				awk '{print NR}' /etc/fstab /etc/issue
+				awk '{print FNR}' /etc/fstab /etc/issue
+				awk '{print FILENAME}' /etc/fstab /etc/issue
+				awk 'BEGIN{print ARGC}' /etc/fstab /etc/issue
+				awk 'BEGIN{print ARGV[0]}' /etc/fstab /etc/issue
+
+			2.2 自定义变量
+
+				(1)-v var=value 区分字符大小写
+
+				(2) 在program中直接定义
+
+					awk -v test='hellow gawk' '{print test}' /etc/fstab
+					awk 'BEGIN{test="hellow gawk";print test}' /etc/fstab
+
+
+		3 printf命令
+			格式化输出 printf FORMANT,item1,item2...
+
+				(1) FORMANT 必须给出
+				(2) 不会自动换行 需要显式给出换行控制符 \n
+				(3) FORMANT需要分别为后面的每个item指定一个格式化符号
+
+				格式符
+					%c: 显示字符ASCII码
+					%d %i : 显示十进制整数
+					%e %E : 科学记数法
+					%f : 浮点数
+					%g %G : 以科学记数法或浮点数显示数值
+					%s : 显示字符串
+					%u : unsigned 无符号整数
+					%% : 显示%自身
+
+				修饰符
+					#[.#] : 第一个数字控制显示宽度,第二个数字: 小数点后精度
+						%3.1f
+					-:左对齐
+					+:显示数值的符号
+			awk -F: '{printf "Username: %s, UID: %d\n",$1,$3}' /etc/passwd
+			awk -F: '{printf "Username: %15s, UID: %d\n",$1,$3}' /etc/passwd
+			awk -F: '{printf "Username: %-15s, UID: %d\n",$1,$3}' /etc/passwd
+
+		4 操作符
+			
+			算术操作符:
+				x+y,x-y,x*y,x/y,x^y,x%y
+				-x:正数转负数
+				+x:字符串转为数值
+
+			字符串操作符:没符号的操作符 字符串链接
+
+			赋值操作符: =,+=,-=,*=,++,--...
+			比较操作符: >,>=,<,<=,!=,==.....
+
+			模式匹配符:
+				~:是否匹配
+				!~:是否不匹配
+			逻辑操作符:
+				&& ||  !
+
+
+			函数调用:
+				func_name(arg1,arg2...)
+
+			条件表达式
+				selector?true-expression:false-expression
+
+				awk -F: '{$3>1000?usertype="Common User":usertype="Sysuser";printf "%15s:%s\n",$1,usertype}' /etc/passwd
+
+		5 PATTERN
+
+			(1)empty 处理文本的每一行
+			(2)/regular expression/: 仅处理被匹配到的行
+				awk '/^UUID/{print $1}' /etc/fstab
+				awk '!/^UUID/{print $1}' /etc/fstab  取反
+			(3) 关系表达式 结果为真的行被处理 结果为非0或非空字串为 真
+				awk -F: '$3>=1000{print $1,$3}' /etc/passwd  //
+				awk -F: '$NF=="/bin/bash"{print $1,$NF}' /etc/passwd //精确匹配 
+				awk -F: '$NF~/bash$/{print $1,$NF}' /etc/passwd  //非精确匹配
+			(4)lines range 行范围
+				 start_line,end_line  /pat1/,/part2/
+				 不支持直接给出数字格式
+				 awk -F: '/^root/,/^shut/{print $1}' /etc/passwd
+				 awk -F: '(NR>=2&&NR<=10){print $1}' /etc/passwd
+			(5) BEGIN/END模式
+				BEGIN{} 仅在开始处理文件中的文本之前执行一次
+				END{} 仅在处理文本结束之后执行一次
+
+				awk -F: 'BEGIN{print " UNAME UID\n------------------"}{print "%5s:%5d\n", $1,$3}END{print "=======\n end line"}' /etc/passwd
+
+		6 action
+
+			(1) Expression
+			(2) Contro statements: if while等
+			(3)	Compound statements: 组合语句
+			(4) input statements
+			(5) output statements
+
+		7、控制语句
+
+			if(condition) {statments} 
+			if(condition) {statments} else {statements}
+			while(conditon) {statments}
+			do {statements} while(condition)
+			for(expr1;expr2;expr3) {statements}
+			break
+			continue
+			delete array[index]
+			delete array
+			exit 
+			{ statements }	
+
+			7.1 if-else
+
+				语法：if(condition) statement [else statement]
+
+				awk -F: '{if($3>=1000)print $1,$3}' /etc/passwd
+				awk -F: '{if($3>=1000){printf "Common User: %s\n",$1} else {printf "Sysroot: %s\n",$1}}' /etc/passwd^C
+
+
+				awk -F: '{if($NF=="/bin/bash") print $1}' /etc/passwd
+
+				awk -F: '{if(NF>5) print $0}' /etc/fstab
+						
+				使用场景：对awk取得的整行或某个字段做条件判断
+
+				df -h | awk -F[%] '/^\/dev/{print $1}'|awk '{if($NF>10){print $1}}'		
+
+			7.2 while循环	
+
+				语法 while(condition) statement
+
+				使用场景:对一行内多个字段逐一进行类似处理使用
+
+				awk '/^[[:space:]]*linux16/{i=1;while(i<=NF){print $i,length($i);i++}} ' /etc/grub2.cfg 
+
+				awk '/^[[:space:]]*linux16/{i=1;while(i<=NF){if(length($i)>=7){print $i,length($i)};i++}} ' /etc/grub2.cfg 
+
+			7.3 do-while 至少执行一次循环体	 
+					语法：do statement while(condition)
+						 
+			7.4 for循环
+				语法：for(expr1;expr2;expr3) statement
+
+				for(variable assignment;condition;iteration process) {for-body}
+
+					awk '/^[[:space:]]*linux16/{for(i=1;i<=NF;i++) {print $i,length($i)}}' /etc/grub2.cfg
+
+				特殊用法：
+					能够遍历数组中的元素；
+						语法：for(var in array) {for-body}		
+			7.5 switch
+				switch(expression){case VALUE1 or /RE: statement;case VALUE2... default:statement}
+
+			7.6 break和continue
+				break [n] 跳出n层循环
+				continue
+
+			7.7 next
+				提前结束对本行的处理而直接进入下一行
+
+				awk -F: '{if($3%2==0) next; print $1,$3}' /etc/passwd
+
+		8 array
+			array[index-expression]
+
+			index-expression:
+				(1) 可使用任意字符串；字符串要使用双引号；
+				(2) 如果某数组元素事先不存在，在引用时，awk会自动创建此元素，并将其值初始化为“空串”；				
+
+			判断数组中是否存在某元素: index in array
+
+
+			awk 'BEGIN{weekdays["mon"]="Monday";weekdays["fri"]="Friday";print weekdays["fri"]}'
+
+			数组遍历
+				for(var in array) {for-body}
+
+				awk 'BEGIN{weekdays["mon"]="Monday";weekdays["fri"]="Friday";for(i in weekdays) print weekdays[i]}'
+
+				统计各状态数
+				netstat -tan | awk '/^tcp\>/{state[$NF]++}END{for(i in state) {print i,state[i]}}'
+
+				统计web日志中访问的各ip地址次数
+
+				awk '{ip[$1]++}END{for(i in ip){print i,ip[i]}}' /var/log/httpd/access_log
+
+				统计/etc/fstab文件中每个文件系统类型出现的次数
+			
+				grep "dev" /etc/fstab | awk '{array[$3]++}END{for(i in array){print i,array[i]}}' 
+
+
+				统计指定文件中每个字段出现的次数
+
+				awk '{for(i=1;i<=NF;i++){count[$i]++}}END{for(i in count)print i,count[i]}' /etc/fstab 
+
+		9 函数		
+
+			9.1 内置函数
+				数值处理:
+					rand() 返回0和1之间的1个随机数
+					length([s]): 返回指定字符串的长度
+					sub(r,s,[t]): 以r表示的模式来查找t所表示的字符中的匹配的内容，并将其第一次出现替换为s所表示的内容
+
+			 		split(s,a[,r]):以r为分隔符切割字符s，并将切割后的结果保存至a所表示的数组中
+
+			 		netstat -tan | awk '/^tcp\>/{split($5,ip,":");counts[ip[1]]++}END{for (i in count) {print i,count[i]}}'
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
